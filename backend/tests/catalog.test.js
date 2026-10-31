@@ -336,3 +336,63 @@ test('plans: validation, availability flag, lifecycle flags, archive when refere
   assert.equal((await t.admin.delete(`/api/catalog/plans/${future.body.id}`)).status, 204);
   assert.equal((await t.admin.patch(`/api/catalog/plans/${ok.body.id}/archive`)).body.available, false);
 });
+
+// ---------------------------------------------------------------------
+// Quotation templates
+// ---------------------------------------------------------------------
+test('templates: lines with variants, totals preview, validation', async () => {
+  const crm = idOf('products', 'Brightloop CRM');
+  const acc = idOf('products', 'Brightloop Accounting');
+  const prod = (await t.admin.get(`/api/catalog/products/${crm}`)).body;
+  const odooV = prod.variants.find((v) => v.value_name === 'Odoo');
+  const monthly = idOf('recurring_plans', 'Monthly Basic');
+
+  const bad = await t.admin.post('/api/catalog/templates', {
+    name: 'Bad', validity_days: 0, plan_id: monthly,
+    lines: [{ product_id: acc, variant_id: odooV.id, quantity: 0 }],
+  });
+  assert.equal(bad.status, 422);
+  assert.ok(bad.body.fields.validity_days && bad.body.fields['lines.0.quantity']);
+  const wrongVariant = await t.admin.post('/api/catalog/templates', {
+    name: 'Wrong variant', plan_id: monthly, lines: [{ product_id: acc, variant_id: odooV.id, quantity: 1 }],
+  });
+  assert.equal(wrongVariant.status, 422);
+  assert.ok(wrongVariant.body.fields['lines.0.variant_id']);
+  assert.equal((await t.admin.post('/api/catalog/templates', { name: 'No lines', plan_id: monthly, lines: [] })).status, 422);
+
+  const res = await t.admin.post('/api/catalog/templates', {
+    name: 'Starter Bundle', validity_days: 10, plan_id: monthly, payment_term_id: idOf('payment_terms', '15 Days'),
+    lines: [
+      { product_id: crm, variant_id: odooV.id, quantity: 2, description: 'CRM (Odoo brand)' },
+      { product_id: acc, quantity: 1 },
+    ],
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.plan_name, 'Monthly Basic');
+  assert.equal(res.body.payment_term_name, '15 Days');
+  const l0 = res.body.lines[0];
+  assert.equal(l0.unit_price, 1760);
+  assert.equal(l0.variant_name, 'Brand: Odoo');
+  assert.equal(l0.subtotal, 3520);
+  // 3520 + 1500 = 5020 untaxed, 18% GST = 903.6
+  assert.deepEqual(res.body.totals, { untaxed: 5020, tax: 903.6, total: 5923.6 });
+
+  const upd = await t.admin.put(`/api/catalog/templates/${res.body.id}`, {
+    name: 'Starter Bundle', validity_days: 20, plan_id: monthly, lines: [{ product_id: acc, quantity: 3 }],
+  });
+  assert.equal(upd.status, 200);
+  assert.equal(upd.body.lines.length, 1);
+  assert.equal(upd.body.totals.untaxed, 4500);
+
+  const list = await t.staff.get('/api/catalog/templates?search=starter');
+  assert.equal(list.body.total, 1);
+  assert.equal(list.body.items[0].untaxed_amount, 4500);
+  assert.equal(list.body.items[0].line_count, 1);
+  assert.equal((await t.staff.post('/api/catalog/templates', { name: 'S', plan_id: monthly, lines: [{ product_id: acc }] })).status, 403);
+
+  // archived plan cannot be used for a new template
+  const archivedPlan = (await t.admin.post('/api/catalog/plans', { name: 'Old plan', price: 1, billing_period: 'daily', is_active: false })).body;
+  const r = await t.admin.post('/api/catalog/templates', { name: 'Uses old plan', plan_id: archivedPlan.id, lines: [{ product_id: acc }] });
+  assert.equal(r.status, 422);
+  assert.ok(r.body.fields.plan_id);
+});
