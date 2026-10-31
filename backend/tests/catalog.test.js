@@ -124,3 +124,71 @@ test('recordDiscountUsage stops at the usage limit', () => {
     .some((d) => d.id === id), false);
   t.db.prepare('UPDATE discounts SET is_active = 0 WHERE id = ?').run(id);
 });
+
+// ---------------------------------------------------------------------
+// Roles
+// ---------------------------------------------------------------------
+test('roles: staff can read but not write, customers are blocked, anon is 401', async () => {
+  const r1 = await t.staff.get('/api/catalog/taxes');
+  assert.equal(r1.status, 200);
+  assert.ok(r1.body.items.length >= 3);
+  assert.deepEqual(Object.keys(r1.body).sort(), ['items', 'limit', 'page', 'pages', 'total']);
+  assert.equal((await t.staff.post('/api/catalog/taxes', { name: 'Staff tax', amount: 5 })).status, 403);
+  assert.equal((await t.staff.get('/api/catalog/payment-terms')).status, 200);
+  assert.equal((await t.staff.post('/api/catalog/payment-terms', { name: 'Net 7', due_days: 7 })).status, 403);
+
+  const cust = t.makeUser({ name: 'Portal Pat', email: 'pat@test.dev', role: 'customer' });
+  assert.equal((await cust.client.get('/api/catalog/taxes')).status, 403);
+  assert.equal((await t.anon.get('/api/catalog/taxes')).status, 401);
+});
+
+// ---------------------------------------------------------------------
+// Taxes + payment terms
+// ---------------------------------------------------------------------
+test('taxes: validation, unique names, archive instead of delete when referenced', async () => {
+  const bad = await t.admin.post('/api/catalog/taxes', { name: 'Huge', computation: 'percent', amount: 150 });
+  assert.equal(bad.status, 422);
+  assert.ok(bad.body.fields.amount);
+
+  const ok = await t.admin.post('/api/catalog/taxes', { name: 'Cess 2%', computation: 'percent', amount: 2 });
+  assert.equal(ok.status, 201);
+  assert.equal(ok.body.amount, 2);
+  const fixed = await t.admin.post('/api/catalog/taxes', { name: 'Eco fee', computation: 'fixed', amount: 150 });
+  assert.equal(fixed.status, 201);
+
+  const dup = await t.admin.post('/api/catalog/taxes', { name: 'cess 2%', amount: 3 });
+  assert.equal(dup.status, 409);
+
+  const upd = await t.admin.put(`/api/catalog/taxes/${ok.body.id}`, { name: 'Cess 3%', computation: 'percent', amount: 3 });
+  assert.equal(upd.status, 200);
+  assert.equal(upd.body.name, 'Cess 3%');
+
+  // unreferenced tax can be deleted
+  assert.equal((await t.admin.delete(`/api/catalog/taxes/${ok.body.id}`)).status, 204);
+
+  // GST 18% is used by products -> 409, archive works
+  const gst = idOf('taxes', 'GST 18%');
+  const del = await t.admin.delete(`/api/catalog/taxes/${gst}`);
+  assert.equal(del.status, 409);
+  assert.match(del.body.error, /Archive/);
+  const arch = await t.admin.patch(`/api/catalog/taxes/${gst}/archive`);
+  assert.equal(arch.body.is_active, 0);
+  const active = await t.admin.get('/api/catalog/taxes?active=1&limit=100');
+  assert.equal(active.body.items.some((x) => x.id === gst), false);
+  assert.equal((await t.admin.patch(`/api/catalog/taxes/${gst}/restore`)).body.is_active, 1);
+
+  const search = await t.staff.get('/api/catalog/taxes?search=GST&sort=amount:desc');
+  assert.deepEqual(search.body.items.map((x) => x.name), ['GST 18%', 'GST 12%', 'GST 5%']);
+});
+
+test('payment terms: due days >= 0, CRUD', async () => {
+  const bad = await t.admin.post('/api/catalog/payment-terms', { name: 'Negative', due_days: -1 });
+  assert.equal(bad.status, 422);
+  assert.ok(bad.body.fields.due_days);
+  const ok = await t.admin.post('/api/catalog/payment-terms', { name: 'Net 7', due_days: 7 });
+  assert.equal(ok.status, 201);
+  assert.equal((await t.admin.get(`/api/catalog/payment-terms/${ok.body.id}`)).body.due_days, 7);
+  const term30 = idOf('payment_terms', '30 Days');
+  assert.equal((await t.admin.delete(`/api/catalog/payment-terms/${term30}`)).status, 409, 'used by the seeded template');
+  assert.equal((await t.admin.delete(`/api/catalog/payment-terms/${ok.body.id}`)).status, 204);
+});
