@@ -396,3 +396,59 @@ test('templates: lines with variants, totals preview, validation', async () => {
   assert.equal(r.status, 422);
   assert.ok(r.body.fields.plan_id);
 });
+
+// ---------------------------------------------------------------------
+// Discounts (admin only)
+// ---------------------------------------------------------------------
+test('discounts: admin only, validation, status, usages, limit cannot drop below usage', async () => {
+  assert.equal((await t.staff.get('/api/catalog/discounts')).status, 403);
+  assert.equal((await t.staff.post('/api/catalog/discounts', { name: 'S', discount_type: 'fixed', value: 1 })).status, 403);
+
+  const bad = await t.admin.post('/api/catalog/discounts', {
+    name: 'Too much', discount_type: 'percent', value: 150, start_date: '2026-12-01', end_date: '2026-11-01',
+  });
+  assert.equal(bad.status, 422);
+  assert.ok(bad.body.fields.value && bad.body.fields.end_date);
+  const zero = await t.admin.post('/api/catalog/discounts', { name: 'Zero', discount_type: 'fixed', value: 0 });
+  assert.ok(zero.body.fields.value);
+  const noProducts = await t.admin.post('/api/catalog/discounts', { name: 'No products', discount_type: 'fixed', value: 5, scope: 'product' });
+  assert.ok(noProducts.body.fields.product_ids);
+
+  const crm = idOf('products', 'Brightloop CRM');
+  const d = await t.admin.post('/api/catalog/discounts', {
+    name: 'CRM 10%', discount_type: 'percent', value: 10, scope: 'product', product_ids: [crm],
+    min_quantity: 2, usage_limit: 2, start_date: '2020-01-01',
+  });
+  assert.equal(d.status, 201);
+  assert.equal(d.body.status, 'active');
+  assert.equal(d.body.usage_count, 0);
+  assert.deepEqual(d.body.product_ids, [crm]);
+  assert.equal(d.body.remaining, 2);
+
+  const sched = await t.admin.post('/api/catalog/discounts', { name: 'Future 5', discount_type: 'fixed', value: 50, start_date: '2999-01-01' });
+  assert.equal(sched.body.status, 'scheduled');
+  const exp = await t.admin.post('/api/catalog/discounts', { name: 'Old 5', discount_type: 'fixed', value: 50, end_date: '2000-01-01' });
+  assert.equal(exp.body.status, 'expired');
+
+  const inv = makeInvoice('INV/T/90');
+  assert.equal(catalog.recordDiscountUsage(d.body.id, inv, 240), true);
+  const full = await t.admin.get(`/api/catalog/discounts/${d.body.id}`);
+  assert.equal(full.body.usage_count, 1);
+  assert.equal(full.body.usages[0].invoice_number, 'INV/T/90');
+
+  const lower = await t.admin.put(`/api/catalog/discounts/${d.body.id}`, {
+    name: 'CRM 10%', discount_type: 'percent', value: 10, scope: 'product', product_ids: [crm], usage_limit: 1,
+  });
+  assert.equal(lower.status, 200, 'limit equal to usage is allowed');
+  assert.equal(lower.body.status, 'exhausted');
+  const tooLow = await t.admin.put(`/api/catalog/discounts/${sched.body.id}`, { name: 'Future 5', discount_type: 'fixed', value: 50, usage_limit: 0 });
+  assert.equal(tooLow.status, 422);
+
+  const filtered = await t.admin.get('/api/catalog/discounts?status=exhausted');
+  assert.deepEqual(filtered.body.items.map((x) => x.name), ['CRM 10%']);
+
+  const del = await t.admin.delete(`/api/catalog/discounts/${d.body.id}`);
+  assert.equal(del.status, 409);
+  assert.equal((await t.admin.delete(`/api/catalog/discounts/${exp.body.id}`)).status, 204);
+  assert.equal((await t.admin.patch(`/api/catalog/discounts/${sched.body.id}/archive`)).body.status, 'inactive');
+});
