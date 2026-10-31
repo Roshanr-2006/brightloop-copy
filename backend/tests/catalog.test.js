@@ -192,3 +192,110 @@ test('payment terms: due days >= 0, CRUD', async () => {
   assert.equal((await t.admin.delete(`/api/catalog/payment-terms/${term30}`)).status, 409, 'used by the seeded template');
   assert.equal((await t.admin.delete(`/api/catalog/payment-terms/${ok.body.id}`)).status, 204);
 });
+
+// ---------------------------------------------------------------------
+// Products, variants, attributes
+// ---------------------------------------------------------------------
+test('attributes: create with values, add/rename/delete value, 409 when used', async () => {
+  const a = await t.admin.post('/api/catalog/attributes', { name: 'Edition', values: ['Standard', 'Pro'] });
+  assert.equal(a.status, 201);
+  assert.deepEqual(a.body.values.map((v) => v.name), ['Pro', 'Standard']);
+  assert.equal((await t.staff.post('/api/catalog/attributes', { name: 'Nope' })).status, 403);
+  const v = await t.admin.post(`/api/catalog/attributes/${a.body.id}/values`, { name: 'Enterprise' });
+  assert.equal(v.status, 201);
+  assert.equal((await t.admin.post(`/api/catalog/attributes/${a.body.id}/values`, { name: 'enterprise' })).status, 409);
+  const ren = await t.admin.put(`/api/catalog/attributes/${a.body.id}/values/${v.body.id}`, { name: 'Ultimate' });
+  assert.equal(ren.body.name, 'Ultimate');
+  assert.equal((await t.admin.delete(`/api/catalog/attributes/${a.body.id}/values/${v.body.id}`)).status, 204);
+  const list = await t.staff.get('/api/catalog/attributes');
+  assert.equal(list.status, 200);
+  assert.ok(list.body.items.find((x) => x.name === 'Brand').values.length >= 2);
+  const brand = list.body.items.find((x) => x.name === 'Brand');
+  assert.equal((await t.admin.delete(`/api/catalog/attributes/${brand.id}`)).status, 409);
+});
+
+test('products: create with taxes + variants in one go, final prices, update, options', async () => {
+  const brand = (await t.admin.get('/api/catalog/attributes')).body.items.find((x) => x.name === 'Brand');
+  const odoo = brand.values.find((v) => v.name === 'Odoo').id;
+  const bl = brand.values.find((v) => v.name === 'Brightloop').id;
+  const gst = idOf('taxes', 'GST 18%');
+
+  const bad = await t.admin.post('/api/catalog/products', {
+    name: 'X', sales_price: -5, variants: [{ attribute_value_id: odoo }, { attribute_value_id: odoo }],
+  });
+  assert.equal(bad.status, 422);
+  assert.ok(bad.body.fields.name && bad.body.fields.sales_price && bad.body.fields['variants.1.attribute_value_id']);
+
+  const res = await t.admin.post('/api/catalog/products', {
+    name: 'Helpdesk', type: 'service', sales_price: 1200, cost_price: 200, tax_ids: [gst],
+    variants: [{ attribute_value_id: odoo, extra_price: 560 }, { attribute_value_id: bl, extra_price: 0 }],
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.taxes[0].name, 'GST 18%');
+  const ov = res.body.variants.find((v) => v.value_name === 'Odoo');
+  assert.equal(ov.name, 'Brand: Odoo');
+  assert.equal(ov.final_price, 1760);
+  assert.equal(catalog.getPrice(res.body.id, ov.id), 1760);
+
+  assert.equal((await t.admin.post('/api/catalog/products', { name: 'helpdesk', sales_price: 1 })).status, 409);
+
+  // update: drop the Brightloop variant, change Odoo extra, remove taxes
+  const upd = await t.admin.put(`/api/catalog/products/${res.body.id}`, {
+    name: 'Helpdesk Pro', type: 'service', sales_price: 1300, tax_ids: [],
+    variants: [{ id: ov.id, attribute_value_id: odoo, extra_price: 600 }],
+  });
+  assert.equal(upd.status, 200);
+  assert.equal(upd.body.variants.length, 1);
+  assert.equal(upd.body.variants[0].final_price, 1900);
+  assert.deepEqual(upd.body.taxes, []);
+
+  const staffGet = await t.staff.get(`/api/catalog/products/${res.body.id}`);
+  assert.equal(staffGet.status, 200);
+  assert.equal((await t.staff.put(`/api/catalog/products/${res.body.id}`, { name: 'Hack', sales_price: 1 })).status, 403);
+
+  const list = await t.staff.get('/api/catalog/products?type=service&search=help&with=variants');
+  assert.equal(list.body.total, 1);
+  assert.equal(list.body.items[0].variants[0].final_price, 1900);
+
+  const opts = await t.staff.get('/api/catalog/products/options');
+  const crm = opts.body.items.find((p) => p.name === 'Brightloop CRM');
+  assert.deepEqual(crm.variants.map((v) => v.final_price).sort(), [1200, 1760]);
+  assert.equal(crm.taxes[0].name, 'GST 18%');
+
+  // unreferenced -> hard delete
+  assert.equal((await t.admin.delete(`/api/catalog/products/${res.body.id}`)).status, 204);
+});
+
+test('products: referenced product must be archived, referenced variant is deactivated', async () => {
+  const crm = idOf('products', 'Brightloop CRM');
+  const del = await t.admin.delete(`/api/catalog/products/${crm}`);
+  assert.equal(del.status, 409, 'used by the seeded template');
+  assert.match(del.body.error, /Archive/);
+  const arch = await t.admin.patch(`/api/catalog/products/${crm}/archive`);
+  assert.equal(arch.body.is_active, 0);
+  const opts = await t.staff.get('/api/catalog/products/options');
+  assert.equal(opts.body.items.some((p) => p.id === crm), false);
+  await t.admin.patch(`/api/catalog/products/${crm}/restore`);
+
+  // a template line uses the Odoo variant -> removing it from the product deactivates it
+  const prod = (await t.admin.get(`/api/catalog/products/${crm}`)).body;
+  const odooV = prod.variants.find((v) => v.value_name === 'Odoo');
+  const blV = prod.variants.find((v) => v.value_name === 'Brightloop');
+  const tplId = idOf('quotation_templates', 'Enterprise Yearly Bundle');
+  t.db.prepare('UPDATE quotation_template_lines SET variant_id = ? WHERE template_id = ? AND product_id = ?').run(odooV.id, tplId, crm);
+  const upd = await t.admin.put(`/api/catalog/products/${crm}`, {
+    name: prod.name, type: prod.type, sales_price: prod.sales_price, cost_price: prod.cost_price,
+    tax_ids: prod.tax_ids, variants: [{ id: blV.id, attribute_value_id: blV.attribute_value_id, extra_price: 0 }],
+  });
+  assert.equal(upd.status, 200);
+  const kept = upd.body.variants.find((v) => v.id === odooV.id);
+  assert.equal(kept.is_active, 0);
+  assert.equal(kept.in_use, true);
+  // put it back for later tests
+  await t.admin.put(`/api/catalog/products/${crm}`, {
+    name: prod.name, type: prod.type, sales_price: prod.sales_price, cost_price: prod.cost_price, tax_ids: prod.tax_ids,
+    variants: prod.variants.map((v) => ({ id: v.id, attribute_value_id: v.attribute_value_id, extra_price: v.extra_price, is_active: 1 })),
+  });
+  t.db.prepare('UPDATE quotation_template_lines SET variant_id = NULL WHERE template_id = ?').run(tplId);
+  assert.equal(catalog.getPrice(crm, odooV.id), 1760);
+});
