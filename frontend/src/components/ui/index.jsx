@@ -74,9 +74,9 @@ const STATUS_TONE = {
   customer: 'neutral',
 };
 
-export function StatusBadge({ status, label }) {
+export function StatusBadge({ status, label, className = '' }) {
   const key = String(status || '').toLowerCase();
-  return <span className={`badge badge-${STATUS_TONE[key] || 'neutral'}`}>{label || key.replace(/_/g, ' ') || '-'}</span>;
+  return <span className={`badge badge-${STATUS_TONE[key] || 'neutral'} ${className}`.trim()}>{label || key.replace(/_/g, ' ') || '-'}</span>;
 }
 
 /* ---------- Table + pagination ---------- */
