@@ -151,9 +151,13 @@ const counts = { customers: 0, subscriptions: 0, subscription_lines: 0, invoices
 const invoiceStatusCount = { draft: 0, confirmed: 0, paid: 0, cancelled: 0, overdue: 0, partial: 0 };
 
 /* ------------------------------------------------------------------ builders */
+const addonProducts = products.filter((p) => p.type === 'addon');
+
 function makeLines(plan) {
-  const n = weighted([[1, 45], [2, 35], [3, 20]]);
-  const pool = [...recurringProducts];
+  // Short billing cycles (daily trials, weekly starters) only carry small add-ons, like real usage.
+  const short = plan.billing_period === 'daily' || plan.billing_period === 'weekly';
+  const n = plan.billing_period === 'daily' ? 1 : weighted([[1, 45], [2, 35], [3, 20]]);
+  const pool = short && addonProducts.length ? [...addonProducts] : [...recurringProducts];
   const lines = [];
   for (let i = 0; i < n && pool.length; i += 1) {
     const product = pool.splice(Math.floor(rand() * pool.length), 1)[0];
@@ -207,7 +211,18 @@ function invoiceLineData(lines) {
  * Insert one invoice for a billing period.
  * kind: 'paid' | 'open' | 'partial' | 'draft' | 'cancelled'
  */
+// Invoices are queued and written in date order at the end so INV numbers follow invoice dates.
+const pendingInvoices = [];
 function insertInvoice(sub, periodStart, periodEnd, kind) {
+  pendingInvoices.push([sub, periodStart, periodEnd, kind]);
+}
+function flushInvoices() {
+  pendingInvoices.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0)); // stable: cancelled before re-bill
+  for (const args of pendingInvoices) writeInvoice(...args);
+  pendingInvoices.length = 0;
+}
+
+function writeInvoice(sub, periodStart, periodEnd, kind) {
   const invoiceDate = periodStart;
   const dueDate = addDays(invoiceDate, sub.term.due_days);
   const lines = invoiceLineData(sub.lines);
@@ -302,7 +317,10 @@ function billPeriods(sub, plan, startDate, until, maxInvoices = 60) {
 /* ------------------------------------------------------------------ main generation */
 function planFor() {
   const period = weighted([['monthly', 70], ['yearly', 18], ['weekly', 9], ['daily', 3]]);
-  const options = planBy(period);
+  let options = planBy(period);
+  // Limited-time offers (plans with an end date) get a small share of new subscriptions.
+  const evergreen = options.filter((p) => !p.end_date);
+  if (evergreen.length && rand() < 0.88) options = evergreen;
   return options.length ? pick(options) : pick(plans);
 }
 
@@ -321,7 +339,7 @@ function startDateFor(plan, status) {
     case 'daily': return window(status === 'closed' ? 120 : 3);
     case 'weekly': return window(status === 'closed' ? 300 : 24);
     case 'yearly': return window(360);
-    default: return window(status === 'closed' ? 365 : 330);
+    default: return window(status === 'closed' ? 365 : 270);
   }
 }
 
@@ -371,7 +389,7 @@ function seedSubscriptions(customerIds) {
       continue;
     }
     // closed: ran a few periods, then closed at the end of the last one.
-    const periods = int(1, plan.billing_period === 'monthly' ? 10 : 4);
+    const periods = int(1, plan.billing_period === 'monthly' ? 8 : 4);
     let end = start;
     for (let k = 0; k < periods; k += 1) end = addPeriod(end, plan.billing_period, plan.billing_interval);
     const closedOn = minDate(addDays(end, -1), addDays(TODAY, -1));
@@ -428,6 +446,7 @@ try {
   const customerIds = seedCustomers(batch);
   seedSubscriptions(customerIds);
   if (!portalHasSubs) seedPortalCustomer();
+  flushInvoices();
   db.prepare('UPDATE sequences SET next_value = ? WHERE code = ?').run(nextSub, 'subscription');
   db.prepare('UPDATE sequences SET next_value = ? WHERE code = ?').run(nextInv, 'invoice');
   db.exec('COMMIT');
