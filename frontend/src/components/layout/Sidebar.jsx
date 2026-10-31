@@ -5,7 +5,7 @@ import { appRoutes, REQUIRE_LOGIN } from '../../routes.jsx';
 
 export default function Sidebar({ open, onNavigate }) {
   const { user } = useAuth();
-  const visible = appRoutes.filter((r) => !REQUIRE_LOGIN || (user && r.roles.includes(user.role)));
+  const visible = appRoutes.filter((r) => !r.hidden).filter((r) => !REQUIRE_LOGIN || (user && r.roles.includes(user.role)));
 
   const sections = [];
   for (const r of visible) {

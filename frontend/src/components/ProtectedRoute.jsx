@@ -1,9 +1,9 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { REQUIRE_LOGIN } from '../routes.jsx';
+import { REQUIRE_LOGIN, homeFor } from '../routes.jsx';
 
 // Blocks a page unless the user is logged in with one of `roles`.
-// (UI convenience only: the backend must still check roles on every API route.)
+// (UI convenience only: the backend checks roles on every API route.)
 export default function ProtectedRoute({ roles, children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -12,6 +12,8 @@ export default function ProtectedRoute({ roles, children }) {
   if (loading) return <div className="page-loading">Loading...</div>;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (roles && !roles.includes(user.role)) {
+    // Customers landing on an internal page like "/" go to their portal.
+    if (location.pathname === '/') return <Navigate to={homeFor(user.role)} replace />;
     return (
       <div className="card empty-state">
         <h2>Access denied</h2>
