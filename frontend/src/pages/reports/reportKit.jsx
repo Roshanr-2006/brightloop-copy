@@ -125,24 +125,24 @@ export function ReportStyles() {
       .rk-legend span { display: inline-flex; align-items: center; gap: 6px; }
       .rk-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
       .rk-invoiced { background: var(--brand); }
-      .rk-collected { background: #3aa57a; }
+      .rk-collected { background: var(--success-foreground); }
       .rk-pair { display: flex; align-items: flex-end; justify-content: center; gap: 3px; width: 100%; flex: 1; min-height: 0; }
       .rk-pair .bar { max-width: 22px; transition: height .3s ease; }
       .rk-bar-value { font-size: 10px; color: var(--muted); white-space: nowrap; min-height: 12px; }
-      .rk-share { height: 8px; background: #f2f4f7; border-radius: 999px; overflow: hidden; min-width: 80px; }
+      .rk-share { height: 8px; background: var(--muted-surface); border-radius: 999px; overflow: hidden; min-width: 80px; }
       .rk-share-fill { height: 100%; border-radius: 999px; }
       .rk-brand { background: var(--brand); }
-      .rk-success { background: #3aa57a; }
-      .rk-warning { background: #f0a020; }
+      .rk-success { background: var(--success-foreground); }
+      .rk-warning { background: var(--warning); }
       .rk-danger { background: var(--danger); }
-      .rk-timing { font-size: 11px; color: var(--muted); background: #f2f4f7; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+      .rk-timing { font-size: 11px; color: var(--muted); background: var(--muted-surface); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
       .rk-kpis { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .table th { text-align: left; }
       .table th.num, .table td.num { text-align: right; }
       .rk-kpis .stat-value { font-size: 21px; }
       .rk-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
       .rk-buckets { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-      .rk-bucket { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+      .rk-bucket { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 12px 14px; background: var(--surface); }
       .rk-bucket strong { display: block; font-size: 18px; margin-top: 2px; }
       .rk-bucket.b3 strong { color: var(--danger); }
       .rk-status-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -154,7 +154,7 @@ export function ReportStyles() {
       .rk-filters .field { min-width: 150px; }
       .rk-customer { position: relative; min-width: 220px; }
       .rk-suggest { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border);
-        border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.08); margin-top: 4px; max-height: 240px; overflow: auto; }
+        border-radius: var(--radius-control); box-shadow: var(--shadow-card); margin-top: 4px; max-height: 240px; overflow: auto; }
       .rk-suggest button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; font: inherit; cursor: pointer; }
       .rk-suggest button:hover { background: var(--brand-light); }
       .rk-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--brand-light); color: var(--brand); font-weight: 600; font-size: 13px; }
@@ -162,7 +162,7 @@ export function ReportStyles() {
       .rk-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 16px 0 10px; }
       .rk-section-head h3 { margin: 0; font-size: 16px; }
       .rk-section-head select.input, .card-actions select.input { width: auto; }
-      .rk-total-row td { font-weight: 700; background: #fafafa; }
+      .rk-total-row td { font-weight: 700; background: var(--background); }
       .num { text-align: right; font-variant-numeric: tabular-nums; }
       @media (max-width: 900px) {
         .rk-grid { grid-template-columns: 1fr; }
