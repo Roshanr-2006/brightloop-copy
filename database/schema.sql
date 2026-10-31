@@ -19,7 +19,7 @@ PRAGMA foreign_keys = ON;
 --            taxes and other configuration.
 -- staff    : day-to-day work (customers, subscriptions, invoices, payments).
 -- customer : portal access to their own subscriptions and invoices only.
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     name           TEXT    NOT NULL CHECK (length(trim(name)) BETWEEN 2 AND 100),
     email          TEXT    NOT NULL COLLATE NOCASE UNIQUE,      -- one account per email
@@ -34,7 +34,7 @@ CREATE TABLE users (
 );
 
 -- "Forgot password": store only a hash of the emailed token; single use, expiring.
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash  TEXT    NOT NULL UNIQUE,
@@ -42,12 +42,12 @@ CREATE TABLE password_reset_tokens (
     used_at     TEXT,
     created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE INDEX idx_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_user ON password_reset_tokens(user_id);
 
 -- ---------------------------------------------------------------------
 -- 2. Customers (billing contacts). A customer may or may not have a portal login.
 -- ---------------------------------------------------------------------
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id          INTEGER UNIQUE REFERENCES users(id) ON DELETE SET NULL, -- portal login
     name             TEXT    NOT NULL CHECK (length(trim(name)) >= 2),
@@ -66,7 +66,7 @@ CREATE TABLE customers (
 -- ---------------------------------------------------------------------
 -- 3. Taxes and payment terms (admin configuration)
 -- ---------------------------------------------------------------------
-CREATE TABLE taxes (
+CREATE TABLE IF NOT EXISTS taxes (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT    NOT NULL UNIQUE,                        -- e.g. 'GST 18%'
     computation  TEXT    NOT NULL DEFAULT 'percent' CHECK (computation IN ('percent', 'fixed')),
@@ -76,7 +76,7 @@ CREATE TABLE taxes (
     CHECK (computation <> 'percent' OR amount <= 100)
 );
 
-CREATE TABLE payment_terms (
+CREATE TABLE IF NOT EXISTS payment_terms (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT    NOT NULL UNIQUE,                          -- 'Immediate', '15 Days', '30 Days'
     due_days   INTEGER NOT NULL DEFAULT 0 CHECK (due_days >= 0),
@@ -86,7 +86,7 @@ CREATE TABLE payment_terms (
 -- ---------------------------------------------------------------------
 -- 4. Products and variants
 -- ---------------------------------------------------------------------
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT    NOT NULL CHECK (length(trim(name)) >= 2),
     type         TEXT    NOT NULL DEFAULT 'service'
@@ -98,22 +98,22 @@ CREATE TABLE products (
     created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE INDEX idx_products_active ON products(is_active, name);
+CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active, name);
 
 -- Default taxes applied to a product (copied onto subscription/invoice lines).
-CREATE TABLE product_taxes (
+CREATE TABLE IF NOT EXISTS product_taxes (
     product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     tax_id      INTEGER NOT NULL REFERENCES taxes(id)    ON DELETE RESTRICT,
     PRIMARY KEY (product_id, tax_id)
 );
 
 -- Attributes such as "Brand" with values such as "Odoo".
-CREATE TABLE product_attributes (
+CREATE TABLE IF NOT EXISTS product_attributes (
     id    INTEGER PRIMARY KEY AUTOINCREMENT,
     name  TEXT NOT NULL UNIQUE
 );
 
-CREATE TABLE product_attribute_values (
+CREATE TABLE IF NOT EXISTS product_attribute_values (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     attribute_id  INTEGER NOT NULL REFERENCES product_attributes(id) ON DELETE CASCADE,
     name          TEXT    NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE product_attribute_values (
 
 -- A variant = product + attribute value, with an extra price
 -- (e.g. choosing Brand = Odoo adds 560 to the sales price).
-CREATE TABLE product_variants (
+CREATE TABLE IF NOT EXISTS product_variants (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id          INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     attribute_value_id  INTEGER NOT NULL REFERENCES product_attribute_values(id) ON DELETE RESTRICT,
@@ -134,7 +134,7 @@ CREATE TABLE product_variants (
 -- ---------------------------------------------------------------------
 -- 5. Recurring plans
 -- ---------------------------------------------------------------------
-CREATE TABLE recurring_plans (
+CREATE TABLE IF NOT EXISTS recurring_plans (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     name             TEXT    NOT NULL UNIQUE,
     price            NUMERIC(12,2) NOT NULL CHECK (price >= 0),
@@ -157,7 +157,7 @@ CREATE TABLE recurring_plans (
 -- ---------------------------------------------------------------------
 -- 6. Quotation templates (pre-filled plan + product lines, valid N days)
 -- ---------------------------------------------------------------------
-CREATE TABLE quotation_templates (
+CREATE TABLE IF NOT EXISTS quotation_templates (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     name             TEXT    NOT NULL UNIQUE,
     validity_days    INTEGER NOT NULL DEFAULT 30 CHECK (validity_days >= 1),
@@ -168,7 +168,7 @@ CREATE TABLE quotation_templates (
     created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-CREATE TABLE quotation_template_lines (
+CREATE TABLE IF NOT EXISTS quotation_template_lines (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     template_id  INTEGER NOT NULL REFERENCES quotation_templates(id) ON DELETE CASCADE,
     product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -176,14 +176,14 @@ CREATE TABLE quotation_template_lines (
     description  TEXT,
     quantity     INTEGER NOT NULL DEFAULT 1 CHECK (quantity >= 1)
 );
-CREATE INDEX idx_template_lines_template ON quotation_template_lines(template_id);
+CREATE INDEX IF NOT EXISTS idx_template_lines_template ON quotation_template_lines(template_id);
 
 -- ---------------------------------------------------------------------
 -- 7. Subscriptions
 -- ---------------------------------------------------------------------
 -- Lifecycle: draft -> quotation -> confirmed -> active -> closed
 --            (active <-> paused only if the plan is pausable)
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
     id                     INTEGER PRIMARY KEY AUTOINCREMENT,
     number                 TEXT    NOT NULL UNIQUE,              -- e.g. SUB/2026/00001 (see sequences)
     customer_id            INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
@@ -205,12 +205,12 @@ CREATE TABLE subscriptions (
     updated_at             TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     CHECK (expiry_date IS NULL OR expiry_date >= start_date)
 );
-CREATE INDEX idx_subscriptions_customer     ON subscriptions(customer_id);
-CREATE INDEX idx_subscriptions_status       ON subscriptions(status);
-CREATE INDEX idx_subscriptions_plan         ON subscriptions(plan_id);
-CREATE INDEX idx_subscriptions_billing_due  ON subscriptions(status, next_invoice_date);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_customer     ON subscriptions(customer_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status       ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_plan         ON subscriptions(plan_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_billing_due  ON subscriptions(status, next_invoice_date);
 
-CREATE TABLE subscription_lines (
+CREATE TABLE IF NOT EXISTS subscription_lines (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     subscription_id  INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
     product_id       INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -220,16 +220,16 @@ CREATE TABLE subscription_lines (
     unit_price       NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),   -- product price + variant extra
     amount           NUMERIC(12,2) NOT NULL CHECK (amount >= 0)        -- quantity * unit_price (before tax)
 );
-CREATE INDEX idx_subscription_lines_sub ON subscription_lines(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_lines_sub ON subscription_lines(subscription_id);
 
-CREATE TABLE subscription_line_taxes (
+CREATE TABLE IF NOT EXISTS subscription_line_taxes (
     line_id  INTEGER NOT NULL REFERENCES subscription_lines(id) ON DELETE CASCADE,
     tax_id   INTEGER NOT NULL REFERENCES taxes(id) ON DELETE RESTRICT,
     PRIMARY KEY (line_id, tax_id)
 );
 
 -- Full audit trail so anyone on the team can see where a subscription stands.
-CREATE TABLE subscription_status_history (
+CREATE TABLE IF NOT EXISTS subscription_status_history (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     subscription_id  INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
     from_status      TEXT,
@@ -238,7 +238,7 @@ CREATE TABLE subscription_status_history (
     note             TEXT,
     changed_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE INDEX idx_sub_history_sub ON subscription_status_history(subscription_id, changed_at);
+CREATE INDEX IF NOT EXISTS idx_sub_history_sub ON subscription_status_history(subscription_id, changed_at);
 
 -- ---------------------------------------------------------------------
 -- 8. Discounts (admin only)
@@ -247,7 +247,7 @@ CREATE INDEX idx_sub_history_sub ON subscription_status_history(subscription_id,
 -- scope = 'subscription' -> applies to the whole subscription total; if
 --                           discount_subscriptions has rows it is limited to them,
 --                           otherwise it applies to every subscription.
-CREATE TABLE discounts (
+CREATE TABLE IF NOT EXISTS discounts (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     name            TEXT    NOT NULL UNIQUE,
     discount_type   TEXT    NOT NULL CHECK (discount_type IN ('fixed', 'percent')),
@@ -267,13 +267,13 @@ CREATE TABLE discounts (
     CHECK (usage_limit IS NULL OR usage_count <= usage_limit)              -- can never exceed the limit
 );
 
-CREATE TABLE discount_products (
+CREATE TABLE IF NOT EXISTS discount_products (
     discount_id  INTEGER NOT NULL REFERENCES discounts(id) ON DELETE CASCADE,
     product_id   INTEGER NOT NULL REFERENCES products(id)  ON DELETE CASCADE,
     PRIMARY KEY (discount_id, product_id)
 );
 
-CREATE TABLE discount_subscriptions (
+CREATE TABLE IF NOT EXISTS discount_subscriptions (
     discount_id      INTEGER NOT NULL REFERENCES discounts(id)     ON DELETE CASCADE,
     subscription_id  INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
     PRIMARY KEY (discount_id, subscription_id)
@@ -283,7 +283,7 @@ CREATE TABLE discount_subscriptions (
 -- 9. Invoices
 -- ---------------------------------------------------------------------
 -- Lifecycle: draft -> confirmed -> paid   (draft/confirmed -> cancelled)
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     number           TEXT    NOT NULL UNIQUE,                    -- e.g. INV/2026/00001
     subscription_id  INTEGER REFERENCES subscriptions(id) ON DELETE RESTRICT,
@@ -320,7 +320,7 @@ CREATE INDEX idx_invoices_status_due     ON invoices(status, due_date);      -- 
 CREATE INDEX idx_invoices_invoice_date   ON invoices(invoice_date);          -- revenue by period
 CREATE INDEX idx_invoices_subscription   ON invoices(subscription_id);
 
-CREATE TABLE invoice_lines (
+CREATE TABLE IF NOT EXISTS invoice_lines (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     invoice_id       INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
     product_id       INTEGER REFERENCES products(id) ON DELETE RESTRICT,
@@ -333,10 +333,10 @@ CREATE TABLE invoice_lines (
     subtotal         NUMERIC(12,2) NOT NULL CHECK (subtotal >= 0),        -- qty*price - discount
     total            NUMERIC(12,2) NOT NULL CHECK (total >= 0)            -- subtotal + tax
 );
-CREATE INDEX idx_invoice_lines_invoice ON invoice_lines(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_lines_invoice ON invoice_lines(invoice_id);
 
 -- Snapshot of each tax applied (name/rate copied so later tax edits don't change old invoices).
-CREATE TABLE invoice_line_taxes (
+CREATE TABLE IF NOT EXISTS invoice_line_taxes (
     line_id    INTEGER NOT NULL REFERENCES invoice_lines(id) ON DELETE CASCADE,
     tax_id     INTEGER REFERENCES taxes(id) ON DELETE SET NULL,
     tax_name   TEXT    NOT NULL,
@@ -347,7 +347,7 @@ CREATE TABLE invoice_line_taxes (
 
 -- Each time a discount lands on an invoice it is recorded once here;
 -- the app increments discounts.usage_count in the same transaction.
-CREATE TABLE discount_usages (
+CREATE TABLE IF NOT EXISTS discount_usages (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     discount_id  INTEGER NOT NULL REFERENCES discounts(id) ON DELETE RESTRICT,
     invoice_id   INTEGER NOT NULL REFERENCES invoices(id)  ON DELETE CASCADE,
@@ -359,7 +359,7 @@ CREATE TABLE discount_usages (
 -- ---------------------------------------------------------------------
 -- 10. Payments
 -- ---------------------------------------------------------------------
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     invoice_id    INTEGER NOT NULL REFERENCES invoices(id)  ON DELETE RESTRICT,
     customer_id   INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
@@ -371,16 +371,16 @@ CREATE TABLE payments (
     recorded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE INDEX idx_payments_invoice  ON payments(invoice_id);
-CREATE INDEX idx_payments_date     ON payments(payment_date);
-CREATE INDEX idx_payments_customer ON payments(customer_id);
+CREATE INDEX IF NOT EXISTS idx_payments_invoice  ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_date     ON payments(payment_date);
+CREATE INDEX IF NOT EXISTS idx_payments_customer ON payments(customer_id);
 
 -- ---------------------------------------------------------------------
 -- 11. Document numbering (SUB/2026/00001, INV/2026/00001)
 -- ---------------------------------------------------------------------
 -- Increment inside the same transaction that creates the document:
 --   UPDATE sequences SET next_value = next_value + 1 WHERE code = 'invoice' RETURNING next_value - 1;
-CREATE TABLE sequences (
+CREATE TABLE IF NOT EXISTS sequences (
     code        TEXT    PRIMARY KEY,                             -- 'subscription', 'invoice'
     prefix      TEXT    NOT NULL,                                -- 'SUB', 'INV'
     next_value  INTEGER NOT NULL DEFAULT 1 CHECK (next_value >= 1)
@@ -390,7 +390,7 @@ CREATE TABLE sequences (
 -- 12. Reporting views (finance dashboard)
 -- ---------------------------------------------------------------------
 -- Outstanding = confirmed and not fully paid. Overdue = outstanding and past due date.
-CREATE VIEW v_invoice_balances AS
+CREATE VIEW IF NOT EXISTS v_invoice_balances AS
 SELECT
     i.*,
     ROUND(i.total_amount - i.amount_paid, 2)                         AS balance_due,
@@ -403,7 +403,7 @@ SELECT
     END                                                               AS days_overdue
 FROM invoices i;
 
-CREATE VIEW v_subscription_summary AS
+CREATE VIEW IF NOT EXISTS v_subscription_summary AS
 SELECT
     s.id, s.number, s.status, s.start_date, s.expiry_date, s.next_invoice_date,
     c.id   AS customer_id, c.name AS customer_name,
