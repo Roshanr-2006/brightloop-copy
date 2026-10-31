@@ -299,3 +299,40 @@ test('products: referenced product must be archived, referenced variant is deact
   t.db.prepare('UPDATE quotation_template_lines SET variant_id = NULL WHERE template_id = ?').run(tplId);
   assert.equal(catalog.getPrice(crm, odooV.id), 1760);
 });
+
+// ---------------------------------------------------------------------
+// Plans
+// ---------------------------------------------------------------------
+test('plans: validation, availability flag, lifecycle flags, archive when referenced', async () => {
+  const bad = await t.admin.post('/api/catalog/plans', {
+    name: 'Broken', price: 10, billing_period: 'hourly', billing_interval: 0, min_quantity: 0,
+    start_date: '2026-05-10', end_date: '2026-05-01',
+  });
+  assert.equal(bad.status, 422);
+  for (const f of ['billing_period', 'billing_interval', 'min_quantity', 'end_date']) assert.ok(bad.body.fields[f], f);
+  assert.equal((await t.admin.post('/api/catalog/plans', { name: 'Bad date', price: 1, billing_period: 'monthly', start_date: '2026-02-30' })).status, 422);
+
+  const ok = await t.admin.post('/api/catalog/plans', {
+    name: 'Quarterly', price: 2500, billing_period: 'monthly', billing_interval: 3, min_quantity: 2,
+    start_date: '2020-01-01', pausable: true, renewable: true, closable: false, auto_close: false,
+  });
+  assert.equal(ok.status, 201);
+  assert.equal(ok.body.available, true);
+  assert.equal(ok.body.pausable, 1);
+  assert.equal(ok.body.closable, 0);
+  assert.equal(ok.body.subscription_count, 0);
+
+  const future = await t.admin.post('/api/catalog/plans', { name: 'Future plan', price: 5, billing_period: 'weekly', start_date: '2999-01-01' });
+  assert.equal(future.body.available, false);
+
+  const list = await t.staff.get('/api/catalog/plans?available=1&limit=100');
+  assert.equal(list.status, 200);
+  assert.ok(list.body.items.some((p) => p.id === ok.body.id));
+  assert.equal(list.body.items.some((p) => p.id === future.body.id), false);
+  assert.equal((await t.staff.post('/api/catalog/plans', { name: 'Staff plan', price: 1, billing_period: 'daily' })).status, 403);
+
+  const yearly = idOf('recurring_plans', 'Yearly Business');
+  assert.equal((await t.admin.delete(`/api/catalog/plans/${yearly}`)).status, 409);
+  assert.equal((await t.admin.delete(`/api/catalog/plans/${future.body.id}`)).status, 204);
+  assert.equal((await t.admin.patch(`/api/catalog/plans/${ok.body.id}/archive`)).body.available, false);
+});

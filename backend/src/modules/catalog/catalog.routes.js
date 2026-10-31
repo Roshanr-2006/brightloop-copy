@@ -15,6 +15,7 @@ router.use(requireAuth, requireInternal);
 
 router.use('/products', require('./products/products.routes'));
 router.use('/attributes', require('./products/attributes.routes'));
+router.use('/plans', require('./plans/plans.routes'));
 router.use('/taxes', require('./taxes/taxes.routes'));
 router.use('/payment-terms', require('./payment-terms/payment-terms.routes'));
 
