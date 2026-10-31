@@ -1,0 +1,68 @@
+/* Brightloop theme (owner: Merryl, starter version). Use these variables everywhere. */
+:root {
+  --brand: #714b67;
+  --brand-dark: #5a3b52;
+  --brand-light: #f4edf2;
+  --accent: #017e84;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --text: #1f2430;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --success: #16794c;
+  --warning: #a05a00;
+  --danger: #b42318;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  --sidebar-width: 240px;
+  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-size: 14px; line-height: 1.5; }
+h1, h2, h3 { margin: 0 0 8px; }
+a { color: var(--brand); }
+.muted { color: var(--muted); }
+.error-text { color: var(--danger); }
+
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: var(--sidebar-width); background: #2b1f2a; color: #e9e1e7; padding: 18px 12px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: #fff; padding: 0 8px 18px; }
+.brand-mark { width: 32px; height: 32px; border-radius: 8px; background: var(--brand); display: grid; place-items: center; }
+.nav-section { margin-bottom: 14px; }
+.nav-heading { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #a8949f; padding: 4px 10px; }
+.nav-link { display: block; padding: 8px 10px; border-radius: 8px; color: #dccfd8; text-decoration: none; }
+.nav-link:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.nav-link.active { background: var(--brand); color: #fff; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.page-title { font-size: 20px; margin: 0; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.content { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; }
+.empty-state { text-align: center; padding: 40px 20px; }
+.page-loading { padding: 40px; text-align: center; color: var(--muted); }
+.auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+.auth-shell .card { width: min(420px, 100%); }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid transparent; font-weight: 600; cursor: pointer; text-decoration: none; font: inherit; }
+.btn.primary { background: var(--brand); color: #fff; }
+.btn.primary:hover { background: var(--brand-dark); }
+.btn.ghost { background: var(--surface); border-color: var(--border); color: var(--text); }
+.icon-btn { border: none; background: none; font-size: 20px; cursor: pointer; padding: 4px 8px; }
+.menu-btn { display: none; }
+.backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 9; }
+
+@media (max-width: 800px) {
+  .sidebar { position: fixed; left: 0; z-index: 10; transform: translateX(-100%); transition: transform 0.2s; }
+  .sidebar.open { transform: translateX(0); }
+  .menu-btn { display: inline-block; }
+  .content { padding: 16px; }
+}
