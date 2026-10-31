@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -22,23 +24,30 @@ app.get('/api/health', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Module routers. Each owner uncomments/adds their line when the module exists.
-// Pull before editing this block, push right after (one-line changes only).
+// Module routers. A router is mounted as soon as its <name>.routes.js file exists,
+// so modules can land in any order without editing this file.
 // ---------------------------------------------------------------------------
-// A. Sachin
-// app.use('/api/auth', require('./modules/auth/auth.routes'));
-// app.use('/api/users', require('./modules/users/users.routes'));
-// app.use('/api/customers', require('./modules/customers/customers.routes'));
-// app.use('/api/portal', require('./modules/portal/portal.routes'));
-// B. Roshan
-// app.use('/api/catalog', require('./modules/catalog/catalog.routes'));
-// C. Swathy
-// app.use('/api/subscriptions', require('./modules/subscriptions/subscriptions.routes'));
-// app.use('/api/invoices', require('./modules/invoices/invoices.routes'));
-// app.use('/api/billing', require('./modules/billing/billing.routes'));
-// D. Merryl
-// app.use('/api/payments', require('./modules/payments/payments.routes'));
-// app.use('/api/reports', require('./modules/reports/reports.routes'));
+const MODULES = [
+  // A. Sachin
+  ['/api/auth', 'auth/auth.routes'],
+  ['/api/users', 'users/users.routes'],
+  ['/api/customers', 'customers/customers.routes'],
+  ['/api/portal', 'portal/portal.routes'],
+  // B. Roshan
+  ['/api/catalog', 'catalog/catalog.routes'],
+  // C. Swathy
+  ['/api/subscriptions', 'subscriptions/subscriptions.routes'],
+  ['/api/invoices', 'invoices/invoices.routes'],
+  ['/api/billing', 'billing/billing.routes'],
+  // D. Merryl
+  ['/api/payments', 'payments/payments.routes'],
+  ['/api/reports', 'reports/reports.routes'],
+];
+
+for (const [mountPath, file] of MODULES) {
+  const full = path.join(__dirname, 'modules', `${file}.js`);
+  if (fs.existsSync(full)) app.use(mountPath, require(full));
+}
 
 app.use('/api', notFoundHandler);
 app.use(errorHandler);
