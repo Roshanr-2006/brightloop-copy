@@ -1,0 +1,16 @@
+{
+  "name": "Brightloop",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "forwardPorts": [5173, 4000],
+  "portsAttributes": {
+    "5173": { "label": "Frontend (React)", "onAutoForward": "openBrowser" },
+    "4000": { "label": "Backend API", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "cd backend && npm install && cp -n .env.example .env && npm run db:reset && cd ../frontend && npm install",
+  "postAttachCommand": "echo 'Run: (cd backend && npm run dev) & (cd frontend && npm run dev)'",
+  "customizations": {
+    "vscode": {
+      "extensions": ["qwtel.sqlite-viewer"]
+    }
+  }
+}
