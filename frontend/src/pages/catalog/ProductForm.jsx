@@ -330,11 +330,11 @@ export default function ProductForm() {
               <table className="line-editor">
                 <thead>
                   <tr>
-                    <th>Attribute</th>
-                    <th>Value</th>
-                    <th className="num">Extra price</th>
+                    <th style={{ width: '24%' }}>Attribute</th>
+                    <th style={{ width: '26%' }}>Value</th>
+                    <th className="num" style={{ width: 160 }}>Extra price</th>
                     <th className="num">Final price</th>
-                    <th>Active</th>
+                    <th style={{ width: 90 }}>Active</th>
                     <th aria-label="Actions" />
                   </tr>
                 </thead>
