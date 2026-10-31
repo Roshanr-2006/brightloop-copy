@@ -42,6 +42,8 @@ const MODULES = [
   // D. Merryl
   ['/api/payments', 'payments/payments.routes'],
   ['/api/reports', 'reports/reports.routes'],
+  // Admin tools
+  ['/api/admin', 'admin/admin.routes'],
 ];
 
 for (const [mountPath, file] of MODULES) {
@@ -53,3 +55,4 @@ app.use('/api', notFoundHandler);
 app.use(errorHandler);
 
 module.exports = app;
+

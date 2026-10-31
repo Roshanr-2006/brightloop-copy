@@ -57,6 +57,7 @@ export const appRoutes = [
   { path: '/catalog/payment-terms', label: 'Payment terms', section: 'Configuration', roles: INTERNAL, element: page('catalog/PaymentTerms', 'Payment terms', 'Roshan') },
 
   // Administration (A. Sachin)
+  { path: '/admin', label: 'Admin panel', section: 'Administration', roles: [ADMIN], element: page('admin/AdminPanel', 'Admin panel', 'Roshan') },
   { path: '/admin/staff', label: 'Staff users', section: 'Administration', roles: [ADMIN], element: page('admin/StaffList', 'Staff users', 'Sachin') },
 
   // Customer portal (A. Sachin)

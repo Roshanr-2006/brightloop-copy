@@ -1,0 +1,20 @@
+.admin-hero { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 20px 24px; border-radius: var(--radius); color: #fff; background: linear-gradient(135deg, var(--brand-dark, #5b21b6), var(--brand, #7c3aed)); }
+.admin-hero h2 { margin: 0 0 4px; font-size: 22px; }
+.admin-hero p { margin: 0; opacity: 0.85; }
+.admin-hero .pill { background: rgba(255,255,255,0.18); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; }
+.admin-stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.admin-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.admin-stat .num { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.admin-stat .lbl { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.admin-two { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.admin-note { font-size: 13px; color: var(--muted); margin: 0; }
+.dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 22px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.dropzone:hover, .dropzone.over { border-color: var(--brand); background: var(--brand-light); }
+.dropzone strong { display: block; margin-bottom: 4px; }
+.log-box { background: #0f172a; color: #cbd5e1; border-radius: 8px; padding: 12px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; max-height: 220px; overflow: auto; white-space: pre-wrap; }
+.progress { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.progress > span { display: block; height: 100%; width: 40%; background: var(--brand); border-radius: 999px; animation: admin-slide 1.2s ease-in-out infinite; }
+@keyframes admin-slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+.strength { height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.strength > span { display: block; height: 100%; transition: width .2s, background .2s; }
+@media (max-width: 900px) { .admin-two { grid-template-columns: 1fr; } }

@@ -2,7 +2,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   Activity, ArrowDownLeft, BarChart3, Boxes, BriefcaseBusiness, Building2, CreditCard,
-  FileClock, FileText, Gauge, LayoutDashboard, LifeBuoy, LogOut, Package, ReceiptText,
+  FileClock, FileText, Gauge, LayoutDashboard, LayoutGrid, LifeBuoy, LogOut, Package, ReceiptText,
   Settings2, ShieldCheck, Sparkles, Tag, Users, WalletCards,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -22,6 +22,7 @@ const ICONS = {
   '/catalog/discounts': Tag,
   '/catalog/taxes': ArrowDownLeft,
   '/catalog/payment-terms': CreditCard,
+  '/admin': LayoutGrid,
   '/admin/staff': ShieldCheck,
   '/portal/subscriptions': Activity,
   '/portal/invoices': ReceiptText,
