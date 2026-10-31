@@ -147,3 +147,61 @@ test('change password requires the current password', async () => {
   assert.equal((await t.client().post('/api/auth/login', { email: 'asha@example.com', password: 'Chang3d!Pass' })).status, 200);
   assert.equal((await t.anon.post('/api/auth/change-password', {})).status, 401);
 });
+
+// ---------------------------------------------------------------- /api/users
+
+test('only admins can manage staff users', async () => {
+  const body = { name: 'New Staff', email: 'newstaff@brightloop.test', password: GOOD };
+  assert.equal((await t.anon.get('/api/users')).status, 401);
+  assert.equal((await t.staff.post('/api/users', body)).status, 403);
+  assert.equal((await t.staff.get('/api/users')).status, 403);
+  const customer = t.makeUser({ name: 'Cust One', email: 'cust1@example.com' });
+  assert.equal((await customer.client.post('/api/users', body)).status, 403);
+
+  const weak = await t.admin.post('/api/users', { ...body, password: 'weak' });
+  assert.equal(weak.status, 422);
+  assert.ok(weak.body.fields.password);
+
+  const res = await t.admin.post('/api/users', { ...body, role: 'customer' });
+  assert.equal(res.status, 422, 'customer role is not allowed here');
+
+  const created = await t.admin.post('/api/users', body);
+  assert.equal(created.status, 201);
+  assert.equal(created.body.role, 'staff');
+  assert.equal(created.body.created_by, t.adminId);
+  assert.equal(created.body.password_hash, undefined);
+
+  const dup = await t.admin.post('/api/users', { ...body, email: 'NEWSTAFF@brightloop.test' });
+  assert.equal(dup.status, 409);
+  assert.ok(dup.body.fields.email);
+
+  const login = await t.client().post('/api/auth/login', { email: body.email, password: GOOD });
+  assert.equal(login.status, 200);
+  assert.equal(login.body.user.role, 'staff');
+});
+
+test('admin lists staff (customers excluded by default) and updates them', async () => {
+  const list = await t.admin.get('/api/users?limit=100');
+  assert.equal(list.status, 200);
+  assert.ok(list.body.items.length >= 2);
+  assert.ok(list.body.items.every((u) => u.role !== 'customer'));
+  assert.ok(list.body.total >= 2);
+
+  const search = await t.admin.get('/api/users?search=newstaff');
+  assert.equal(search.body.items.length, 1);
+  const id = search.body.items[0].id;
+
+  const off = await t.admin.patch(`/api/users/${id}`, { is_active: false });
+  assert.equal(off.status, 200);
+  assert.equal(off.body.is_active, false);
+  assert.equal((await t.client().post('/api/auth/login', { email: 'newstaff@brightloop.test', password: GOOD })).status, 401);
+
+  const promote = await t.admin.patch(`/api/users/${id}`, { role: 'admin', is_active: true, name: 'Promoted Staff' });
+  assert.equal(promote.body.role, 'admin');
+  assert.equal(promote.body.name, 'Promoted Staff');
+
+  assert.equal((await t.admin.patch(`/api/users/${t.adminId}`, { is_active: false })).status, 422);
+  assert.equal((await t.admin.patch(`/api/users/${t.adminId}`, { role: 'staff' })).status, 422);
+  assert.equal((await t.admin.get('/api/users/999999')).status, 404);
+  assert.equal((await t.admin.patch('/api/users/999999', { name: 'Nobody Here' })).status, 404);
+});
