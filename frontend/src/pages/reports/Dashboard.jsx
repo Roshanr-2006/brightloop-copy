@@ -15,8 +15,9 @@ import { ReportStyles, RevenueBars, Timing, presetRange } from './reportKit.jsx'
 const METHOD_LABEL = {
   bank_transfer: 'Bank transfer', upi: 'UPI', cash: 'Cash', card: 'Card', cheque: 'Cheque', other: 'Other',
 };
-const METHOD_COLORS = ['#7c3aed', '#a78bfa', '#c4b5fd', '#ddd6fe', '#6d28d9', '#ede9fe'];
-const PLAN_COLORS = ['#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd', '#6d28d9'];
+// Visual colors stay in the shared design system, not in page-level markup.
+const METHOD_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)'];
+const PLAN_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
 const STATUS_ORDER = ['active', 'confirmed', 'quotation', 'paused', 'draft', 'closed'];
 
 function MiniTrend({ icon: Icon, label, value, hint, tone = 'purple' }) {
@@ -72,7 +73,7 @@ function PlanMix({ items = [] }) {
         const progress = Math.max(2, Math.round((Number(plan.active || 0) / maxActive) * 100));
         return (
           <Link className="sub-plan-row" to={`/catalog/plans`} key={plan.plan_id}>
-            <span className="sub-plan-symbol" style={{ '--plan-color': PLAN_COLORS[i % PLAN_COLORS.length] }}><CreditCard size={16} /></span>
+            <span className="sub-plan-symbol" style={{ '--plan-color': PLAN_COLORS[i % PLAN_COLORS.length] }} aria-hidden="true"><span className="sub-plan-avatar">{plan.plan_name.trim().slice(0, 2).toUpperCase()}</span></span>
             <span className="sub-plan-main">
               <span className="sub-plan-title"><strong>{plan.plan_name}</strong><small>{plan.billing_interval > 1 ? `Every ${plan.billing_interval} ` : ''}{plan.billing_period}</small></span>
               <span className="sub-plan-track"><i style={{ width: `${progress}%`, background: PLAN_COLORS[i % PLAN_COLORS.length] }} /></span>
