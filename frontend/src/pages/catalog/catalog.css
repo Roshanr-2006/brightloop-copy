@@ -1,0 +1,99 @@
+/* Catalog pages (owner: Roshan). Builds on styles/theme.css variables. */
+
+.cat-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cat-filters .input { width: auto; min-width: 140px; }
+.cat-filters .input.search { min-width: 220px; flex: 1 1 220px; }
+
+.cat-name { font-weight: 600; }
+.cat-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.cat-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cat-strike { text-decoration: line-through; color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: 999px; font-size: 12px;
+  background: var(--brand-light); color: var(--brand-dark); border: 1px solid transparent;
+}
+.chip.muted-chip { background: #f1f2f4; color: var(--muted); }
+
+/* Checkbox pill group used for tax / product multi-selects */
+.check-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.check-pill {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+  font-size: 13px; transition: border-color .15s, background .15s;
+}
+.check-pill input { margin: 0; accent-color: var(--brand); }
+.check-pill.checked { border-color: var(--brand); background: var(--brand-light); color: var(--brand-dark); }
+.check-pill.disabled { opacity: .6; cursor: default; }
+.check-scroll { max-height: 180px; overflow: auto; padding: 2px; }
+
+/* Lifecycle toggles on plans */
+.toggle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.toggle-card {
+  display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface);
+}
+.toggle-card.on { border-color: var(--brand); background: var(--brand-light); }
+.toggle-card input { margin-top: 3px; accent-color: var(--brand); }
+.toggle-card strong { display: block; font-size: 14px; }
+.toggle-card span { font-size: 12px; color: var(--muted); }
+
+.switch-row { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.switch-row input { accent-color: var(--brand); width: 16px; height: 16px; }
+
+/* Line editors (variants, template lines) */
+.line-editor { width: 100%; border-collapse: collapse; }
+.line-editor th {
+  text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .03em; padding: 8px; border-bottom: 1px solid var(--border);
+}
+.line-editor td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.line-editor .input { width: 100%; }
+.line-editor td.num, .line-editor th.num { text-align: right; }
+.line-editor tr.archived td { opacity: .6; }
+.line-editor tfoot td { border-bottom: none; font-weight: 600; }
+.line-editor .cell-error { display: block; color: var(--danger); font-size: 12px; margin-top: 2px; }
+.line-editor .input.err { border-color: var(--danger); }
+
+.totals-box { margin-left: auto; min-width: 260px; max-width: 340px; }
+.totals-box .t-row { display: flex; justify-content: space-between; padding: 4px 0; }
+.totals-box .t-row.grand { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-weight: 700; font-size: 16px; }
+
+.inline-helper {
+  border: 1px dashed var(--border); border-radius: var(--radius); padding: 12px; background: #fafafb;
+  display: grid; gap: 10px;
+}
+
+.usage-bar { height: 6px; background: #eceef1; border-radius: 999px; overflow: hidden; margin-top: 4px; min-width: 80px; }
+.usage-bar > i { display: block; height: 100%; background: var(--accent); }
+.usage-bar.full > i { background: var(--danger); }
+
+.readonly-note { display: flex; align-items: center; gap: 8px; }
+
+.scope-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.scope-toggle button {
+  border: 0; background: var(--surface); padding: 8px 14px; cursor: pointer; font: inherit; color: var(--text);
+}
+.scope-toggle button + button { border-left: 1px solid var(--border); }
+.scope-toggle button.active { background: var(--brand); color: #fff; }
+
+.price-preview { font-size: 13px; color: var(--muted); }
+.price-preview b { color: var(--text); }
+
+.cat-section-title { margin: 0 0 4px; font-size: 15px; }
+
+@media (max-width: 760px) {
+  .toggle-grid { grid-template-columns: 1fr; }
+  .totals-box { min-width: 0; max-width: none; width: 100%; }
+  .line-editor thead { display: none; }
+  .line-editor, .line-editor tbody, .line-editor tr, .line-editor td { display: block; width: 100%; }
+  .line-editor tr { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; padding: 6px; }
+  .line-editor td { border: none; padding: 4px; }
+  .line-editor td[data-label]::before {
+    content: attr(data-label); display: block; font-size: 11px; color: var(--muted); text-transform: uppercase;
+  }
+  .line-editor td.num { text-align: left; }
+  .line-editor tfoot tr { border: none; }
+}
